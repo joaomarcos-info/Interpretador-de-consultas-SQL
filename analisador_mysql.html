@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Analisador visual de resultados administrativos e planos de execução do MySQL.">
+  <title>MySQL Insight - Analisador visual</title>
+  <style>
+    :root {
+      --ink: #18201f;
+      --muted: #63706d;
+      --line: #d8e0de;
+      --surface: #ffffff;
+      --surface-2: #f3f7f6;
+      --surface-3: #e8f0ee;
+      --teal: #087f75;
+      --teal-dark: #075f59;
+      --teal-soft: #d9f2ee;
+      --green: #1f8a58;
+      --green-soft: #dff4e8;
+      --amber: #ad6800;
+      --amber-soft: #fff0ce;
+      --red: #c13f35;
+      --red-soft: #fde5e2;
+      --violet: #6657a8;
+      --shadow: 0 8px 24px rgba(28, 49, 45, 0.08);
+      --radius: 8px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--surface-2);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+    button, textarea, input { font: inherit; }
+    select { font: inherit; }
+    button { color: inherit; }
+    .app { min-height: 100vh; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 64px;
+      padding: 10px max(20px, calc((100vw - 1440px) / 2));
+      color: #fff;
+      background: #172522;
+      border-bottom: 3px solid var(--teal);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      border: 1px solid #5d817a;
+      border-radius: 7px;
+      background: #213632;
+      color: #7fe0d2;
+      font: 800 14px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+    .brand strong { display: block; font-size: 15px; }
+    .brand span { display: block; color: #b9cac6; font-size: 12px; }
+    .privacy {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #cfe0dc;
+      font-size: 12px;
+    }
+    .privacy-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #5bd4a0;
+      box-shadow: 0 0 0 4px rgba(91, 212, 160, .14);
+    }
+
+    main {
+      width: min(1440px, 100%);
+      margin: 0 auto;
+      padding: 24px;
+    }
+    .intro {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 18px;
+    }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 5px; font-size: 26px; line-height: 1.2; letter-spacing: 0; }
+    .intro p { margin-bottom: 0; color: var(--muted); font-size: 14px; }
+    .doc-link {
+      flex: 0 0 auto;
+      color: var(--teal-dark);
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(340px, 440px) minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+    .panel {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .input-panel { position: sticky; top: 86px; }
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface);
+    }
+    .panel-head h2 { margin: 0; font-size: 16px; }
+    .step {
+      display: inline-grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      margin-right: 8px;
+      border-radius: 50%;
+      color: #fff;
+      background: var(--teal);
+      font-size: 12px;
+    }
+    .panel-body { padding: 16px 18px 18px; }
+    .field-label {
+      display: block;
+      margin-bottom: 8px;
+      color: #33413f;
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    .version-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 14px;
+    }
+    .version-row .field-label { margin-bottom: 5px; }
+    select {
+      width: 100%;
+      min-height: 40px;
+      padding: 7px 34px 7px 10px;
+      border: 1px solid #bfcac7;
+      border-radius: 6px;
+      color: #273532;
+      background: #fff;
+    }
+    .compat-badge {
+      padding: 7px 9px;
+      border-radius: 5px;
+      color: #17613f;
+      background: var(--green-soft);
+      font-size: 10px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .command-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+      margin-bottom: 14px;
+    }
+    .command-btn {
+      min-height: 46px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      cursor: pointer;
+      text-align: left;
+      transition: border-color .15s, background .15s, transform .15s;
+    }
+    .command-btn:hover { border-color: #75aaa2; transform: translateY(-1px); }
+    .command-btn.active {
+      border-color: var(--teal);
+      background: var(--teal-soft);
+      box-shadow: inset 3px 0 0 var(--teal);
+    }
+    .command-btn strong { display: block; font: 700 11px/1.25 ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .command-btn span { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
+
+    .command-info {
+      margin-bottom: 14px;
+      padding: 11px 12px;
+      border-left: 3px solid var(--teal);
+      border-radius: 4px;
+      background: var(--surface-2);
+      color: #465552;
+      font-size: 12px;
+    }
+    .command-info code { color: var(--teal-dark); font-weight: 700; }
+    .paste-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .paste-head .field-label { margin: 0; }
+    .text-action {
+      padding: 0;
+      border: 0;
+      color: var(--teal-dark);
+      background: none;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    textarea {
+      display: block;
+      width: 100%;
+      min-height: 270px;
+      resize: vertical;
+      padding: 13px;
+      border: 1px solid #bfcac7;
+      border-radius: 6px;
+      outline: none;
+      color: #20302d;
+      background: #fbfdfc;
+      font: 12px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace;
+      tab-size: 2;
+    }
+    textarea:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(8,127,117,.12); }
+    .paste-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 7px 0 14px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      margin-bottom: 14px;
+    }
+    .check {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #43514f;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .check input { accent-color: var(--teal); }
+    .actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+    .primary, .secondary {
+      min-height: 44px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 800;
+    }
+    .primary { border: 1px solid var(--teal); color: #fff; background: var(--teal); }
+    .primary:hover { background: var(--teal-dark); }
+    .secondary { padding: 0 16px; border: 1px solid var(--line); background: #fff; }
+
+    .empty {
+      display: grid;
+      min-height: 610px;
+      place-items: center;
+      padding: 34px;
+      text-align: center;
+    }
+    .empty-art {
+      width: min(340px, 100%);
+      margin: auto;
+    }
+    .empty-bars {
+      display: grid;
+      gap: 9px;
+      margin: 0 auto 24px;
+      padding: 22px;
+      border: 1px dashed #aec0bc;
+      border-radius: 8px;
+      background: var(--surface-2);
+    }
+    .empty-bars i { display: block; height: 9px; border-radius: 2px; background: #d2dfdc; }
+    .empty-bars i:nth-child(2) { width: 78%; background: #a9d8d1; }
+    .empty-bars i:nth-child(3) { width: 58%; background: #f0c477; }
+    .empty h2 { margin-bottom: 6px; font-size: 19px; }
+    .empty p { margin: 0 auto; color: var(--muted); font-size: 13px; }
+
+    .results { display: none; }
+    .results.show { display: block; }
+    .result-top {
+      padding: 18px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfdfc;
+    }
+    .result-title-row {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .eyebrow { margin-bottom: 4px; color: var(--teal-dark); font-size: 11px; font-weight: 900; text-transform: uppercase; }
+    .result-top h2 { margin-bottom: 4px; font-size: 20px; }
+    .result-top p { margin: 0; color: var(--muted); font-size: 12px; }
+    .health {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      flex: 0 0 auto;
+      padding: 7px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .health.good { color: #17613f; background: var(--green-soft); }
+    .health.warn { color: #845000; background: var(--amber-soft); }
+    .health.bad { color: #8f2d27; background: var(--red-soft); }
+    .health-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+    .tabs {
+      display: flex;
+      gap: 2px;
+      overflow-x: auto;
+      padding: 0 18px;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+    }
+    .tab {
+      flex: 0 0 auto;
+      padding: 12px 13px 10px;
+      border: 0;
+      border-bottom: 3px solid transparent;
+      background: none;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .tab.active { border-bottom-color: var(--teal); color: var(--teal-dark); }
+    .tab-panel { display: none; padding: 18px; }
+    .tab-panel.active { display: block; }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .metric {
+      min-height: 102px;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fff;
+    }
+    .metric-label { color: var(--muted); font-size: 11px; font-weight: 700; }
+    .metric-value { display: block; margin: 7px 0 2px; font-size: 22px; line-height: 1.1; }
+    .metric-hint { color: var(--muted); font-size: 10px; }
+    .metric.good { border-top: 3px solid var(--green); }
+    .metric.warn { border-top: 3px solid var(--amber); }
+    .metric.bad { border-top: 3px solid var(--red); }
+    .metric.info { border-top: 3px solid var(--teal); }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 20px 0 10px;
+    }
+    .section-title:first-child { margin-top: 0; }
+    .section-title h3 { margin: 0; font-size: 14px; }
+    .section-title span { color: var(--muted); font-size: 11px; }
+    .findings { display: grid; gap: 8px; }
+    .finding {
+      display: grid;
+      grid-template-columns: 10px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: start;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fff;
+    }
+    .finding-marker { width: 9px; height: 9px; margin-top: 5px; border-radius: 50%; background: var(--teal); }
+    .finding.good .finding-marker { background: var(--green); }
+    .finding.warn .finding-marker { background: var(--amber); }
+    .finding.bad .finding-marker { background: var(--red); }
+    .finding strong { display: block; margin-bottom: 2px; font-size: 12px; }
+    .finding p { margin: 0; color: var(--muted); font-size: 11px; }
+    .severity { padding: 3px 6px; border-radius: 4px; background: var(--surface-3); color: #53605e; font-size: 9px; font-weight: 900; text-transform: uppercase; }
+    .finding.warn .severity { color: #825000; background: var(--amber-soft); }
+    .finding.bad .severity { color: #922f28; background: var(--red-soft); }
+    .finding.good .severity { color: #17613f; background: var(--green-soft); }
+
+    .bars { display: grid; gap: 12px; }
+    .bar-row { display: grid; grid-template-columns: minmax(110px, 180px) minmax(120px, 1fr) auto; gap: 10px; align-items: center; }
+    .bar-label { overflow: hidden; color: #3f4d4a; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+    .bar-track { height: 10px; overflow: hidden; border-radius: 3px; background: #e6edeb; }
+    .bar-fill { height: 100%; min-width: 2px; border-radius: inherit; background: var(--teal); }
+    .bar-fill.warn { background: var(--amber); }
+    .bar-fill.bad { background: var(--red); }
+    .bar-value { color: #4d5b58; font: 700 10px ui-monospace, SFMono-Regular, Consolas, monospace; }
+
+    .table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 7px; }
+    table { width: 100%; border-collapse: collapse; background: #fff; font-size: 11px; }
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--line);
+      color: #3d4b48;
+      background: #edf3f1;
+      text-align: left;
+      white-space: nowrap;
+    }
+    td { max-width: 320px; padding: 9px 10px; border-bottom: 1px solid #e9eeed; vertical-align: top; }
+    tr:last-child td { border-bottom: 0; }
+    tr:hover td { background: #f8fbfa; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .pill { display: inline-block; padding: 2px 6px; border-radius: 999px; background: var(--surface-3); font-size: 10px; font-weight: 800; white-space: nowrap; }
+    .pill.good { color: #17613f; background: var(--green-soft); }
+    .pill.warn { color: #825000; background: var(--amber-soft); }
+    .pill.bad { color: #922f28; background: var(--red-soft); }
+
+    details {
+      margin-bottom: 8px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fff;
+    }
+    summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 13px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 800;
+      list-style: none;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { content: "+"; color: var(--teal); font-size: 17px; }
+    details[open] summary::after { content: "−"; }
+    .detail-content { padding: 0 13px 13px; color: #4b5957; font-size: 11px; }
+    .detail-content p:last-child { margin-bottom: 0; }
+    .raw {
+      max-height: 650px;
+      overflow: auto;
+      margin: 0;
+      padding: 15px;
+      border-radius: 7px;
+      color: #dfe9e6;
+      background: #172522;
+      font: 11px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .tree { display: grid; gap: 8px; }
+    .tree-node {
+      position: relative;
+      margin-left: calc(var(--depth, 0) * 18px);
+      padding: 10px 12px;
+      border-left: 3px solid var(--teal);
+      border-radius: 4px;
+      background: var(--surface-2);
+    }
+    .tree-node.warn { border-left-color: var(--amber); }
+    .tree-node.bad { border-left-color: var(--red); }
+    .tree-node strong { display: block; margin-bottom: 4px; font: 700 11px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .tree-node span { margin-right: 9px; color: var(--muted); font-size: 10px; }
+
+    .guide-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .guide-card { padding: 13px; border: 1px solid var(--line); border-radius: 7px; background: #fff; }
+    .guide-card h3 { margin-bottom: 6px; font-size: 12px; }
+    .guide-card p { margin-bottom: 6px; color: var(--muted); font-size: 11px; }
+    .guide-card code { color: var(--teal-dark); font: 700 10px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .notice { padding: 11px 12px; border-radius: 6px; color: #735000; background: var(--amber-soft); font-size: 11px; }
+    .hidden { display: none !important; }
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 40;
+      max-width: 360px;
+      padding: 11px 14px;
+      border-radius: 6px;
+      color: #fff;
+      background: #20332f;
+      box-shadow: var(--shadow);
+      font-size: 12px;
+      opacity: 0;
+      transform: translateY(12px);
+      pointer-events: none;
+      transition: .2s;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    footer { padding: 22px 0 4px; color: var(--muted); text-align: center; font-size: 11px; }
+
+    @media (max-width: 1050px) {
+      .workspace { grid-template-columns: 1fr; }
+      .input-panel { position: static; }
+      textarea { min-height: 220px; }
+      .empty { min-height: 360px; }
+    }
+    @media (max-width: 700px) {
+      .topbar { padding: 10px 14px; }
+      .privacy span:last-child { display: none; }
+      main { padding: 16px 12px; }
+      .intro { align-items: start; }
+      .doc-link { display: none; }
+      h1 { font-size: 22px; }
+      .command-grid { grid-template-columns: 1fr; }
+      .metrics { grid-template-columns: 1fr 1fr; }
+      .guide-grid { grid-template-columns: 1fr; }
+      .result-title-row { display: block; }
+      .health { margin-top: 10px; }
+      .bar-row { grid-template-columns: 100px 1fr; }
+      .bar-value { grid-column: 2; }
+      .finding { grid-template-columns: 10px minmax(0, 1fr); }
+      .severity { grid-column: 2; justify-self: start; }
+    }
+    @media (max-width: 420px) {
+      .metrics { grid-template-columns: 1fr; }
+      .panel-head, .panel-body, .result-top, .tab-panel { padding-left: 13px; padding-right: 13px; }
+      .tabs { padding: 0 10px; }
+    }
+    @media print {
+      body { background: #fff; }
+      .topbar, .intro, .input-panel, .tabs, footer { display: none !important; }
+      main { width: 100%; padding: 0; }
+      .workspace { display: block; }
+      .panel { border: 0; box-shadow: none; }
+      .tab-panel { display: block !important; padding: 12px 0; }
+      .raw { color: #111; background: #f4f4f4; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">SQL</div>
+        <div><strong>MySQL Insight</strong><span>Leitura visual de diagnósticos</span></div>
+      </div>
+      <div class="privacy"><i class="privacy-dot"></i><span>Processamento local no navegador</span></div>
+    </header>
+
+    <main>
+      <section class="intro">
+        <div>
+          <h1>Entenda o resultado do MySQL</h1>
+          <p>Escolha o comando, cole a saída e transforme registros técnicos em uma análise visual explicada.</p>
+        </div>
+        <a class="doc-link" href="#guia" id="openGuide">Como copiar os dados?</a>
+      </section>
+
+      <div class="workspace">
+        <section class="panel input-panel" aria-label="Entrada de dados">
+          <div class="panel-head"><h2><span class="step">1</span>Escolha e cole</h2></div>
+          <div class="panel-body">
+            <div class="version-row">
+              <div>
+                <label class="field-label" for="serverVersion">Versão do servidor</label>
+                <select id="serverVersion">
+                  <option value="8.3" selected>MySQL 8.3</option>
+                  <option value="auto">Detectar formato automaticamente</option>
+                  <option value="8.4">MySQL 8.4</option>
+                  <option value="8.0">MySQL 8.0</option>
+                </select>
+              </div>
+              <span class="compat-badge">VALIDADO PARA 8.3</span>
+            </div>
+            <label class="field-label">Comando executado</label>
+            <div class="command-grid" id="commandGrid"></div>
+            <div class="command-info" id="commandInfo"></div>
+
+            <div class="paste-head">
+              <label class="field-label" for="sqlOutput">Resultado retornado</label>
+              <button class="text-action" type="button" id="sampleBtn">Usar exemplo</button>
+            </div>
+            <textarea id="sqlOutput" spellcheck="false" placeholder="Cole aqui somente os valores retornados pelo MySQL..."></textarea>
+            <div class="paste-meta"><span id="pasteHint">Cabeçalhos são opcionais.</span><span id="charCount">0 caracteres</span></div>
+
+            <div class="options">
+              <label class="check"><input type="checkbox" id="hasHeaders"> A primeira linha contém cabeçalhos</label>
+              <label class="check"><input type="checkbox" id="showHealthy" checked> Mostrar itens saudáveis</label>
+              <label class="check"><input type="checkbox" id="advancedMode"> Explicação avançada</label>
+            </div>
+            <div class="actions">
+              <button class="primary" type="button" id="analyzeBtn">Analisar resultado</button>
+              <button class="secondary" type="button" id="clearBtn">Limpar</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel output-panel" aria-live="polite">
+          <div class="empty" id="emptyState">
+            <div class="empty-art">
+              <div class="empty-bars"><i></i><i></i><i></i><i></i><i></i></div>
+              <h2>O relatório ficará claro aqui</h2>
+              <p>Você verá indicadores, alertas, tabelas organizadas, comparações visuais e explicações de cada campo.</p>
+            </div>
+          </div>
+
+          <div class="results" id="results">
+            <div class="result-top">
+              <div class="result-title-row">
+                <div>
+                  <div class="eyebrow" id="resultCommand"></div>
+                  <h2 id="resultTitle"></h2>
+                  <p id="resultSubtitle"></p>
+                </div>
+                <div class="health good" id="health"><i class="health-dot"></i><span></span></div>
+              </div>
+            </div>
+            <nav class="tabs" aria-label="Visualizações do relatório">
+              <button class="tab active" data-tab="overview">Visão geral</button>
+              <button class="tab" data-tab="details">Dados detalhados</button>
+              <button class="tab" data-tab="learn">Entenda os campos</button>
+              <button class="tab" data-tab="raw">Texto original</button>
+            </nav>
+            <div class="tab-panel active" id="tab-overview"></div>
+            <div class="tab-panel" id="tab-details"></div>
+            <div class="tab-panel" id="tab-learn"></div>
+            <div class="tab-panel" id="tab-raw"></div>
+          </div>
+        </section>
+      </div>
+
+      <section id="guia" class="panel hidden" style="margin-top:18px">
+        <div class="panel-head"><h2>Guia rápido de cópia</h2><button class="text-action" id="closeGuide">Fechar</button></div>
+        <div class="panel-body guide-grid" id="guideGrid"></div>
+      </section>
+      <footer>Ferramenta educacional. Confirme decisões de produção com métricas históricas e documentação da sua versão do MySQL.</footer>
+    </main>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    "use strict";
+
+    const COMMANDS = {
+      innodb: {
+        label: "SHOW ENGINE INNODB STATUS",
+        short: "InnoDB Status",
+        description: "Estado interno do InnoDB: transações, bloqueios, I/O, log, memória e operações de linhas.",
+        format: "Cole o conteúdo da coluna <code>Status</code>. Também aceito a linha completa copiada do resultado.",
+        columns: [],
+        placeholder: "=====================================\n2026-06-23 10:08:40 INNODB MONITOR OUTPUT\n...\nBUFFER POOL AND MEMORY\n...",
+        sample: `=====================================
+2026-06-23 10:08:40 0x6d14 INNODB MONITOR OUTPUT
+=====================================
+Per second averages calculated from the last 43 seconds
+-----------------
+BACKGROUND THREAD
+-----------------
+srv_master_thread loops: 567 srv_active, 0 srv_shutdown, 120502 srv_idle
+----------
+SEMAPHORES
+----------
+OS WAIT ARRAY INFO: reservation count 685
+OS WAIT ARRAY INFO: signal count 598
+------------
+TRANSACTIONS
+------------
+Trx id counter 171205
+Purge done for trx's n:o < 171205 undo n:o < 0 state: running but idle
+History list length 0
+---TRANSACTION 284359377886792, not started
+0 lock struct(s), heap size 1128, 0 row lock(s)
+---TRANSACTION 284359377886016, not started
+0 lock struct(s), heap size 1128, 0 row lock(s)
+--------
+FILE I/O
+--------
+Pending normal aio reads: [0, 0, 0, 0] , aio writes: [0, 0, 0, 0]
+Pending flushes (fsync) log: 0; buffer pool: 0
+1414 OS file reads, 8278 OS file writes, 1390 OS fsyncs
+0.00 reads/s, 0 avg bytes/read, 0.00 writes/s, 0.00 fsyncs/s
+---
+LOG
+---
+Log sequence number          118629262
+Log written up to            118629262
+Log flushed up to            118629262
+Last checkpoint at           118629262
+----------------------
+BUFFER POOL AND MEMORY
+----------------------
+Dictionary memory allocated 1197283
+Buffer pool size   8191
+Free buffers       6517
+Database pages     1660
+Modified db pages  0
+Pending reads      0
+Pending writes: LRU 0, flush list 0, single page 0
+Buffer pool hit rate 1000 / 1000
+--------------
+ROW OPERATIONS
+--------------
+0 queries inside InnoDB, 0 queries in queue
+Process ID=44500, Main thread ID=36340 , state=sleeping
+Number of rows inserted 10250, updated 710, deleted 0, read 4307627
+0.00 inserts/s, 0.00 updates/s, 0.00 deletes/s, 0.00 reads/s
+END OF INNODB MONITOR OUTPUT`
+      },
+      index: {
+        label: "SHOW INDEX",
+        short: "Índices",
+        description: "Estrutura dos índices, unicidade, colunas, ordem, cardinalidade estimada e visibilidade.",
+        format: "Sem cabeçalhos, use a ordem padrão: Table, Non_unique, Key_name, Seq_in_index, Column_name, Collation, Cardinality, Sub_part, Packed, Null, Index_type, Comment, Index_comment, Visible, Expression.",
+        columns: ["Table","Non_unique","Key_name","Seq_in_index","Column_name","Collation","Cardinality","Sub_part","Packed","Null","Index_type","Comment","Index_comment","Visible","Expression"],
+        placeholder: "clientes\t0\tPRIMARY\t1\tid_cliente\tA\t5000\tNULL\tNULL\t\tBTREE\t\t\tYES\tNULL",
+        sample: `clientes\t0\tPRIMARY\t1\tid_cliente\tA\t5000\tNULL\tNULL\t\tBTREE\t\t\tYES\tNULL
+clientes\t0\tuk_clientes_cpf\t1\tcpf\tA\t5000\tNULL\tNULL\t\tBTREE\t\t\tYES\tNULL
+clientes\t1\tidx_clientes_cidade_nome\t1\tcidade\tA\t42\tNULL\tNULL\tYES\tBTREE\t\t\tYES\tNULL
+clientes\t1\tidx_clientes_cidade_nome\t2\tnome\tA\t4800\tNULL\tNULL\tYES\tBTREE\t\t\tYES\tNULL`
+      },
+      explain: {
+        label: "EXPLAIN",
+        short: "Plano estimado",
+        description: "Plano escolhido pelo otimizador antes da execução, incluindo método de acesso, índice e linhas estimadas.",
+        format: "Sem cabeçalhos, use: id, select_type, table, partitions, type, possible_keys, key, key_len, ref, rows, filtered, Extra.",
+        columns: ["id","select_type","table","partitions","type","possible_keys","key","key_len","ref","rows","filtered","Extra"],
+        placeholder: "1\tSIMPLE\tclientes\tNULL\tALL\tidx_cidade\tNULL\tNULL\tNULL\t5000\t10.00\tUsing where; Using filesort",
+        sample: `1\tSIMPLE\to\tNULL\tALL\tidx_os_cliente,idx_os_equipamento\tNULL\tNULL\tNULL\t12500\t100.00\tNULL
+1\tSIMPLE\tc\tNULL\teq_ref\tPRIMARY\tPRIMARY\t4\ttechhelp.o.id_cliente\t1\t100.00\tNULL
+1\tSIMPLE\te\tNULL\teq_ref\tPRIMARY\tPRIMARY\t4\ttechhelp.o.id_equipamento\t1\t100.00\tNULL`
+      },
+      analyze: {
+        label: "EXPLAIN ANALYZE",
+        short: "Plano executado",
+        description: "Árvore do plano com estimativas e medições reais de tempo, linhas e repetições.",
+        format: "No MySQL 8.3, cole a árvore textual iniciada por <code>-></code>. Essa versão usa o formato TREE no EXPLAIN ANALYZE.",
+        columns: [],
+        placeholder: "-> Sort: clientes.nome  (cost=... rows=...) (actual time=... rows=... loops=1)",
+        sample: `-> Sort: clientes.nome  (cost=512.45 rows=5000) (actual time=3.821..3.990 rows=478 loops=1)
+    -> Filter: (clientes.cidade = 'Bom Jesus')  (cost=512.45 rows=500) (actual time=0.081..3.301 rows=478 loops=1)
+        -> Table scan on clientes  (cost=512.45 rows=5000) (actual time=0.070..2.711 rows=5000 loops=1)`
+      },
+      table: {
+        label: "SHOW TABLE STATUS",
+        short: "Estado das tabelas",
+        description: "Engine, quantidade estimada de linhas, tamanhos, incremento automático, collation e observações.",
+        format: "Sem cabeçalhos: Name, Engine, Version, Row_format, Rows, Avg_row_length, Data_length, Max_data_length, Index_length, Data_free, Auto_increment, Create_time, Update_time, Check_time, Collation, Checksum, Create_options, Comment.",
+        columns: ["Name","Engine","Version","Row_format","Rows","Avg_row_length","Data_length","Max_data_length","Index_length","Data_free","Auto_increment","Create_time","Update_time","Check_time","Collation","Checksum","Create_options","Comment"],
+        placeholder: "clientes\tInnoDB\t10\tDynamic\t5000\t42\t212992\t0\t180224\t4194304\t5001\t2026-06-20 10:00:00\tNULL\tNULL\tutf8mb4_0900_ai_ci\tNULL\t\t",
+        sample: `clientes\tInnoDB\t10\tDynamic\t5000\t42\t212992\t0\t180224\t4194304\t5001\t2026-06-20 10:00:00\t2026-06-23 09:50:00\tNULL\tutf8mb4_0900_ai_ci\tNULL\t\t
+ordens_servico\tInnoDB\t10\tDynamic\t12500\t104\t1310720\t0\t557056\t4194304\t12501\t2026-06-20 10:01:00\t2026-06-23 10:02:00\tNULL\tutf8mb4_0900_ai_ci\tNULL\t\t
+logs_acesso\tInnoDB\t10\tDynamic\t180000\t182\t32833536\t0\t0\t6291456\t180001\t2026-06-20 10:02:00\t2026-06-23 10:07:00\tNULL\tutf8mb4_0900_ai_ci\tNULL\t\t`
+      },
+      status: {
+        label: "SHOW STATUS",
+        short: "Variáveis do servidor",
+        description: "Contadores e indicadores acumulados da sessão ou do servidor.",
+        format: "Cole pares Variable_name e Value, separados por tabulação, barra vertical ou espaços. Cabeçalhos são opcionais.",
+        columns: ["Variable_name","Value"],
+        placeholder: "Threads_connected\t12\nThreads_running\t2\nSlow_queries\t4",
+        sample: `Uptime\t86420
+Connections\t980
+Threads_connected\t12
+Threads_running\t2
+Threads_created\t35
+Aborted_connects\t7
+Questions\t325800
+Slow_queries\t14
+Created_tmp_tables\t2200
+Created_tmp_disk_tables\t120
+Innodb_buffer_pool_read_requests\t4450900
+Innodb_buffer_pool_reads\t1306
+Bytes_received\t18200340
+Bytes_sent\t94002218`
+      },
+      process: {
+        label: "SHOW PROCESSLIST",
+        short: "Conexões e processos",
+        description: "Sessões conectadas, usuários, origem, banco, comando atual, duração, estado e consulta.",
+        format: "Sem cabeçalhos: Id, User, Host, db, Command, Time, State, Info. Prefira copiar como valores separados por tabulação.",
+        columns: ["Id","User","Host","db","Command","Time","State","Info"],
+        placeholder: "15\troot\tlocalhost:54012\ttechhelp\tQuery\t12\tSending data\tSELECT ...",
+        sample: `8\troot\tlocalhost:53981\ttechhelp\tSleep\t43\t\tNULL
+12\taluno\t192.168.0.21:52110\ttechhelp\tQuery\t2\texecuting\tSELECT * FROM clientes WHERE cidade = 'Bom Jesus'
+14\tapp\t192.168.0.30:59020\ttechhelp\tQuery\t76\tWaiting for table metadata lock\tALTER TABLE ordens_servico ADD INDEX idx_status (status)
+15\tapp\t192.168.0.30:59021\ttechhelp\tSleep\t840\t\tNULL
+18\tadmin\tlocalhost:54100\tNULL\tQuery\t0\tinit\tSHOW PROCESSLIST`
+      }
+    };
+
+    const FIELD_HELP = {
+      innodb: [
+        ["BACKGROUND THREAD", "Atividade da thread principal do InnoDB. Muitos ciclos ociosos são normais em um servidor sem carga."],
+        ["SEMAPHORES", "Contadores de espera por estruturas internas. Devem ser avaliados por taxa e evolução, não apenas pelo total acumulado."],
+        ["TRANSACTIONS", "Transações abertas, locks e lista histórica de versões. Transações antigas ou muitos locks merecem investigação."],
+        ["FILE I/O", "Leituras, escritas e sincronizações em disco. Filas pendentes persistentes podem indicar saturação de I/O."],
+        ["LOG", "Posições do redo log. Grande distância entre o número escrito, o descarregado e o checkpoint pode indicar pressão de gravação."],
+        ["BUFFER POOL AND MEMORY", "Cache principal do InnoDB. Hit rate alto e ausência de leituras pendentes costumam ser bons sinais."],
+        ["ROW OPERATIONS", "Operações acumuladas e taxas recentes de leitura, inserção, atualização e exclusão."]
+      ],
+      index: [
+        ["Non_unique", "0 significa que o índice exige valores únicos; 1 permite repetições."],
+        ["Key_name", "Nome do índice. PRIMARY identifica a chave primária."],
+        ["Seq_in_index", "Posição da coluna dentro de um índice composto."],
+        ["Cardinality", "Estimativa de valores distintos. Quanto maior, maior tende a ser a seletividade."],
+        ["Sub_part", "Quantidade de caracteres indexados quando somente um prefixo da coluna participa."],
+        ["Index_type", "Estrutura usada, normalmente BTREE no InnoDB."],
+        ["Visible", "Índices invisíveis não são considerados normalmente pelo otimizador."]
+      ],
+      explain: [
+        ["type", "Método de acesso. Em geral: system/const/eq_ref/ref/range são melhores; index e ALL examinam mais dados."],
+        ["possible_keys", "Índices que poderiam ser usados segundo o otimizador."],
+        ["key", "Índice efetivamente escolhido. NULL indica que nenhum foi usado."],
+        ["rows", "Quantidade estimada de linhas examinadas. É uma estimativa, não uma medição real."],
+        ["filtered", "Percentual estimado das linhas que permanece após os filtros."],
+        ["Extra", "Operações adicionais, como filtro, ordenação, tabela temporária ou uso exclusivo do índice."]
+      ],
+      analyze: [
+        ["cost", "Custo estimado pelo otimizador. Serve para comparar alternativas dentro do mesmo plano."],
+        ["rows estimadas", "Quantidade prevista antes da consulta executar."],
+        ["actual time", "Intervalo aproximado entre início e fim da operação, em milissegundos."],
+        ["rows reais", "Linhas realmente produzidas por execução do nó."],
+        ["loops", "Quantidade de vezes que o nó foi executado. Tempos podem representar média por loop."],
+        ["MySQL 8.3", "Nesta versão, EXPLAIN ANALYZE produz o plano em árvore. O analisador aceita a árvore copiada diretamente ou dentro de uma única célula do Workbench."]
+      ],
+      table: [
+        ["Rows", "Para InnoDB, normalmente é uma estimativa usada pelo otimizador."],
+        ["Data_length", "Espaço aproximado ocupado pelos dados."],
+        ["Index_length", "Espaço aproximado ocupado pelos índices."],
+        ["Data_free", "Espaço alocado e livre; não representa automaticamente desperdício recuperável."],
+        ["Auto_increment", "Próximo valor automático previsto."],
+        ["Collation", "Regras de comparação e ordenação de textos."]
+      ],
+      status: [
+        ["GLOBAL x SESSION", "GLOBAL mostra contadores do servidor; SESSION mostra apenas a conexão atual quando a variável oferece ambos."],
+        ["Uptime", "Segundos desde a inicialização do servidor."],
+        ["Threads_connected", "Conexões atualmente abertas."],
+        ["Threads_running", "Threads que não estão dormindo."],
+        ["Slow_queries", "Consultas que ultrapassaram long_query_time, conforme a configuração."],
+        ["Aborted_connects", "Tentativas de conexão que não foram concluídas com sucesso."],
+        ["Contadores acumulados", "Um total alto pode ser normal em servidor antigo. Compare taxas e intervalos."]
+      ],
+      process: [
+        ["Id", "Identificador da conexão, usado também pelo comando KILL."],
+        ["User / Host", "Conta e origem da conexão."],
+        ["Command", "Atividade geral: Query, Sleep, Connect e outras."],
+        ["Time", "Segundos no estado atual, não necessariamente duração total da conexão."],
+        ["State", "Etapa atual do processamento."],
+        ["Info", "Comando SQL em execução. SHOW PROCESSLIST pode truncar o texto; FULL preserva mais conteúdo."]
+      ]
+    };
+
+    const state = { command: "innodb", analysis: null };
+    const $ = id => document.getElementById(id);
+    const escapeHTML = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" }[c]));
+    const num = value => {
+      const n = Number(String(value ?? "").replace(/,/g, "").trim());
+      return Number.isFinite(n) ? n : 0;
+    };
+    const fmt = value => new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 }).format(Number(value) || 0);
+    const bytes = value => {
+      let n = Number(value) || 0;
+      const units = ["B","KB","MB","GB","TB"];
+      let i = 0;
+      while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+      return `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: i ? 1 : 0 }).format(n)} ${units[i]}`;
+    };
+    const percent = value => `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 }).format(value)}%`;
+    const duration = seconds => {
+      const s = Number(seconds) || 0;
+      if (s < 60) return `${s}s`;
+      if (s < 3600) return `${Math.floor(s/60)}min ${s%60}s`;
+      if (s < 86400) return `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}min`;
+      return `${Math.floor(s/86400)}d ${Math.floor((s%86400)/3600)}h`;
+    };
+    const get = (row, key) => row[key] ?? row[key.toLowerCase()] ?? row[key.toUpperCase()] ?? "";
+
+    function renderCommands() {
+      $("commandGrid").innerHTML = Object.entries(COMMANDS).map(([key, cmd]) => `
+        <button type="button" class="command-btn ${key === state.command ? "active" : ""}" data-command="${key}">
+          <strong>${escapeHTML(cmd.label)}</strong><span>${escapeHTML(cmd.short)}</span>
+        </button>`).join("");
+      document.querySelectorAll(".command-btn").forEach(btn => btn.addEventListener("click", () => selectCommand(btn.dataset.command)));
+      selectCommand(state.command, false);
+      $("guideGrid").innerHTML = Object.entries(COMMANDS).map(([, cmd]) => `
+        <article class="guide-card"><h3>${escapeHTML(cmd.label)}</h3><p>${cmd.format}</p><code>${escapeHTML(cmd.columns.join(" → ") || "Saída textual integral")}</code></article>`).join("");
+    }
+
+    function selectCommand(key, clear = true) {
+      state.command = key;
+      const cmd = COMMANDS[key];
+      document.querySelectorAll(".command-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.command === key));
+      $("commandInfo").innerHTML = `<strong>${escapeHTML(cmd.short)}:</strong> ${cmd.format}`;
+      $("sqlOutput").placeholder = cmd.placeholder;
+      $("hasHeaders").disabled = !cmd.columns.length;
+      $("hasHeaders").checked = false;
+      $("pasteHint").textContent = cmd.columns.length ? "Cole valores tabulados. Cabeçalhos são opcionais." : "Cole a saída textual completa.";
+      if (clear) {
+        $("sqlOutput").value = "";
+        updateCount();
+        resetResult();
+      }
+    }
+
+    function normalizeRaw(raw) {
+      let text = String(raw || "").trim();
+      if ((text.startsWith("'") && text.endsWith("'")) || (text.startsWith('"') && text.endsWith('"'))) text = text.slice(1, -1);
+      text = text.replace(/^['"]?InnoDB['"]?\s*,\s*['"]{0,2}\s*,\s*['"]/, "");
+      text = text.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").replace(/\\t/g, "\t").replace(/\\'/g, "'").replace(/\\"/g, '"');
+      return text.trim().replace(/['"]\s*$/, "");
+    }
+
+    function parseDelimited(raw, expectedColumns, hasHeaders) {
+      const text = normalizeRaw(raw);
+      let lines = text.split(/\r?\n/).map(l => l.trimEnd()).filter(l => l.trim());
+      const verticalRows = [];
+      let verticalRow = {};
+      let verticalMatches = 0;
+      lines.forEach(line => {
+        if (/^\*+\s*\d+\.\s*row\s*\*+$/i.test(line.trim())) {
+          if (Object.keys(verticalRow).length) verticalRows.push(verticalRow);
+          verticalRow = {};
+          return;
+        }
+        const match = line.match(/^\s*([^:]+):\s*(.*)$/);
+        if (!match) return;
+        const key = match[1].trim();
+        const canonical = expectedColumns.find(c => c.toLowerCase() === key.toLowerCase());
+        if (canonical) {
+          verticalRow[canonical] = match[2].trim();
+          verticalMatches++;
+        }
+      });
+      if (Object.keys(verticalRow).length) verticalRows.push(verticalRow);
+      if (verticalMatches >= Math.min(2, expectedColumns.length) && verticalRows.length) {
+        return verticalRows.map(row => Object.fromEntries(expectedColumns.map(column => [column, row[column] ?? ""])));
+      }
+      const pipeTable = lines.some(l => /^\s*\|.*\|\s*$/.test(l));
+      if (pipeTable) {
+        lines = lines.filter(l => !/^\s*\+[-+]+\+\s*$/.test(l));
+      }
+      const splitLine = line => {
+        if (/^\s*\|.*\|\s*$/.test(line)) return line.trim().slice(1, -1).split("|").map(v => v.trim());
+        if (line.includes("\t")) return line.split("\t").map(v => v.trim());
+        if (line.includes(";")) return line.split(";").map(v => v.trim());
+        return line.trim().split(/\s{2,}/).map(v => v.trim());
+      };
+      let rows = lines.map(splitLine);
+      let headers = expectedColumns.slice();
+      const firstLower = (rows[0] || []).map(v => v.toLowerCase());
+      const expectedLower = headers.map(h => h.toLowerCase());
+      const headerMatches = firstLower.filter((v, i) => v === expectedLower[i]).length;
+      const looksLikeHeader = hasHeaders || (
+        headers.length &&
+        firstLower[0] === expectedLower[0] &&
+        headerMatches >= Math.min(2, headers.length)
+      );
+      if (looksLikeHeader && rows.length) headers = rows.shift().map(v => v || "Campo");
+      if (!headers.length && rows[0]) headers = rows[0].map((_, i) => `Campo ${i + 1}`);
+      return rows.map(values => {
+        if (values.length > headers.length && headers.length) {
+          values = [...values.slice(0, headers.length - 1), values.slice(headers.length - 1).join(" ")];
+        }
+        return Object.fromEntries(headers.map((h, i) => [h, values[i] ?? ""]));
+      });
+    }
+
+    function finding(level, title, text, tag) { return { level, title, text, tag: tag || ({good:"Normal",warn:"Atenção",bad:"Crítico",info:"Informação"}[level] || "Informação") }; }
+    function metric(label, value, hint, level="info") { return { label, value, hint, level }; }
+    function healthFrom(findings) {
+      if (findings.some(f => f.level === "bad")) return { level:"bad", label:"Requer atenção imediata" };
+      if (findings.some(f => f.level === "warn")) return { level:"warn", label:"Há pontos para verificar" };
+      return { level:"good", label:"Sem sinais críticos" };
+    }
+
+    function analyzeInnoDB(raw) {
+      const text = normalizeRaw(raw);
+      const pick = re => { const m = text.match(re); return m ? num(m[1]) : 0; };
+      const hitA = pick(/Buffer pool hit rate\s+(\d+)\s*\/\s*\d+/i);
+      const hitB = pick(/Buffer pool hit rate\s+\d+\s*\/\s*(\d+)/i) || 1000;
+      const hit = hitB ? hitA / hitB * 100 : 0;
+      const pool = pick(/Buffer pool size\s+(\d+)/i);
+      const free = pick(/Free buffers\s+(\d+)/i);
+      const dirty = pick(/Modified db pages\s+(\d+)/i);
+      const pendingReads = pick(/Pending reads\s+(\d+)/i);
+      const pendingWritesMatch = text.match(/Pending writes:\s*LRU\s*(\d+),\s*flush list\s*(\d+),\s*single page\s*(\d+)/i);
+      const pendingWrites = pendingWritesMatch ? pendingWritesMatch.slice(1).reduce((s, v) => s + num(v), 0) : 0;
+      const history = pick(/History list length\s+(\d+)/i);
+      const queries = pick(/(\d+)\s+queries inside InnoDB/i);
+      const queue = pick(/(\d+)\s+queries in queue/i);
+      const locks = [...text.matchAll(/(\d+)\s+row lock\(s\)/gi)].reduce((s,m) => s + num(m[1]), 0);
+      const osWaits = [...text.matchAll(/OS waits\s+(\d+)/gi)].reduce((s,m) => s + num(m[1]), 0);
+      const sessions = (text.match(/---TRANSACTION/g) || []).length;
+      const deadlock = /LATEST DETECTED DEADLOCK/i.test(text);
+      const lsn = pick(/Log sequence number\s+(\d+)/i);
+      const flushed = pick(/Log flushed up to\s+(\d+)/i);
+      const checkpoint = pick(/Last checkpoint at\s+(\d+)/i);
+      const logLag = Math.max(0, lsn - checkpoint);
+      const freePct = pool ? free / pool * 100 : 0;
+      const findings = [];
+      if (deadlock) findings.push(finding("bad","Deadlock detectado","O relatório contém a seção do último deadlock. Abra os dados detalhados para identificar as transações envolvidas."));
+      else findings.push(finding("good","Nenhum deadlock presente","A saída atual não contém a seção LATEST DETECTED DEADLOCK."));
+      if (pendingReads + pendingWrites > 0) findings.push(finding(pendingReads + pendingWrites > 16 ? "bad" : "warn","Operações de I/O pendentes",`${pendingReads} leitura(s) e ${pendingWrites} escrita(s) aguardando conclusão.`));
+      else findings.push(finding("good","Sem fila de I/O","Não há leituras nem escritas pendentes no instante da coleta."));
+      if (queue > 0) findings.push(finding(queue > 10 ? "bad" : "warn","Consultas na fila",`${queue} consulta(s) aguardam entrada no InnoDB.`));
+      else findings.push(finding("good","Sem consultas na fila",`${queries} consulta(s) estavam dentro do InnoDB e nenhuma aguardava.`));
+      if (history > 1000) findings.push(finding(history > 10000 ? "bad" : "warn","Lista histórica elevada",`History list length = ${fmt(history)}. Procure transações longas que impeçam o purge.`));
+      else findings.push(finding("good","Purge acompanhado",`History list length = ${fmt(history)}, sem acúmulo aparente de versões antigas.`));
+      if (locks > 0) findings.push(finding("warn","Locks de linha ativos",`${fmt(locks)} lock(s) de linha foram encontrados nas transações listadas.`));
+      if (hit && hit < 99) findings.push(finding("warn","Hit rate abaixo do ideal",`A taxa exibida é ${percent(hit)}. Avalie o comportamento em um intervalo de carga representativo.`));
+      else if (hit) findings.push(finding("good","Cache muito eficiente",`O hit rate do buffer pool é ${percent(hit)} nesta janela.`));
+      if (freePct > 50) findings.push(finding("info","Buffer pool com folga",`${percent(freePct)} dos buffers estão livres. Isso pode refletir baixa carga ou cache dimensionado com sobra.`));
+      const metrics = [
+        metric("Hit rate", hit ? percent(hit) : "N/D", "acessos atendidos pelo cache", hit >= 99 ? "good" : "warn"),
+        metric("Buffer livre", pool ? percent(freePct) : "N/D", `${fmt(free)} de ${fmt(pool)} páginas`, "info"),
+        metric("I/O pendente", fmt(pendingReads + pendingWrites), "leituras + escritas", pendingReads + pendingWrites ? "warn" : "good"),
+        metric("Sessões listadas", fmt(sessions), `${locks} lock(s) de linha`, locks ? "warn" : "info")
+      ];
+      const sectionNames = ["BACKGROUND THREAD","SEMAPHORES","TRANSACTIONS","FILE I/O","INSERT BUFFER AND ADAPTIVE HASH INDEX","LOG","BUFFER POOL AND MEMORY","ROW OPERATIONS"];
+      const sections = [];
+      sectionNames.forEach((name, i) => {
+        const start = text.indexOf(name);
+        if (start < 0) return;
+        const ends = sectionNames.slice(i+1).map(n => text.indexOf(n, start+name.length)).filter(v => v > start);
+        const end = ends.length ? Math.min(...ends) : text.length;
+        sections.push({ name, content: text.slice(start + name.length, end).replace(/^[-\s]+/, "").replace(/[-=\s]+$/, "").trim() });
+      });
+      const bars = [
+        {label:"Páginas de dados", value:pick(/Database pages\s+(\d+)/i)},
+        {label:"Buffers livres", value:free},
+        {label:"Páginas modificadas", value:dirty},
+        {label:"Lista histórica", value:history}
+      ];
+      return {
+        title:"Diagnóstico do mecanismo InnoDB",
+        subtitle:"Leitura do estado interno no instante em que o comando foi executado.",
+        metrics, findings, bars, sections,
+        facts: { "Log atual": lsn, "Log descarregado": flushed, "Distância do checkpoint": logLag, "OS waits": osWaits },
+        health: healthFrom(findings)
+      };
+    }
+
+    function accessLevel(type) {
+      const t = String(type).toLowerCase();
+      if (["system","const","eq_ref","ref","range"].includes(t)) return "good";
+      if (["index_merge","fulltext","ref_or_null"].includes(t)) return "info";
+      if (["index"].includes(t)) return "warn";
+      if (["all"].includes(t)) return "bad";
+      return "info";
+    }
+
+    function analyzeExplain(raw) {
+      const rows = parseDelimited(raw, COMMANDS.explain.columns, $("hasHeaders").checked);
+      const findings = [];
+      let examined = 0;
+      rows.forEach(r => {
+        const table = get(r,"table") || "?";
+        const type = String(get(r,"type") || "").toLowerCase();
+        const rowCount = num(get(r,"rows"));
+        const filtered = num(get(r,"filtered"));
+        examined += rowCount;
+        if (type === "all") findings.push(finding(rowCount > 10000 ? "bad" : "warn",`Varredura completa em ${table}`,`O acesso ALL pode examinar aproximadamente ${fmt(rowCount)} linha(s). Verifique filtros, índices e o tamanho real da tabela.`));
+        else if (type === "index") findings.push(finding("warn",`Leitura completa do índice em ${table}`,`O índice reduz acesso à tabela, mas ainda pode percorrer cerca de ${fmt(rowCount)} entrada(s).`));
+        else findings.push(finding("good",`Acesso ${type || "não informado"} em ${table}`,`Índice usado: ${get(r,"key") || "nenhum"}. Linhas estimadas: ${fmt(rowCount)}.`));
+        const extra = String(get(r,"Extra") || "");
+        if (/using temporary/i.test(extra)) findings.push(finding("warn",`Tabela temporária em ${table}`,"O plano precisa materializar resultados intermediários. GROUP BY, DISTINCT ou ORDER BY podem estar envolvidos."));
+        if (/using filesort/i.test(extra)) findings.push(finding("warn",`Ordenação adicional em ${table}`,"Using filesort significa que a ordenação não foi resolvida diretamente pela ordem de um índice."));
+        if (!get(r,"key") && get(r,"possible_keys") && !["all",""].includes(type)) findings.push(finding("info",`Índice possível não escolhido em ${table}`,`O otimizador considerou ${get(r,"possible_keys")}, mas preferiu outro caminho.`));
+        if (filtered && filtered < 10 && rowCount > 1000) findings.push(finding("warn",`Muitas linhas descartadas em ${table}`,`Apenas ${percent(filtered)} das linhas examinadas devem permanecer após o filtro.`));
+      });
+      if (!rows.length) findings.push(finding("bad","Nenhuma linha reconhecida","Confira se os valores estão separados por tabulação ou barras verticais e na ordem indicada."));
+      const worst = rows.reduce((acc,r) => {
+        const level = accessLevel(get(r,"type"));
+        const score = {good:0,info:1,warn:2,bad:3}[level];
+        return score > acc.score ? {score, type:get(r,"type")} : acc;
+      }, {score:0,type:"N/D"});
+      const metrics = [
+        metric("Etapas",fmt(rows.length),"linhas do plano","info"),
+        metric("Linhas estimadas",fmt(examined),"soma aproximada por etapa",examined > 100000 ? "warn" : "info"),
+        metric("Pior acesso",worst.type || "N/D","método menos eficiente encontrado",worst.score >= 3 ? "bad" : worst.score >= 2 ? "warn" : "good"),
+        metric("Índices usados",fmt(rows.filter(r => get(r,"key") && String(get(r,"key")).toUpperCase() !== "NULL").length),"etapas com key preenchida","info")
+      ];
+      const tableRows = rows.map(r => ({...r, __level: accessLevel(get(r,"type"))}));
+      return { title:"Plano estimado da consulta", subtitle:"O plano mostra decisões do otimizador; não mede o tempo real de execução.", metrics, findings, rows:tableRows, health:healthFrom(findings) };
+    }
+
+    function analyzeTree(raw) {
+      const text = normalizeRaw(raw);
+      const treeLines = text.split(/\r?\n/)
+        .map(line => line.replace(/^\s*\|\s?/, "").replace(/\s?\|\s*$/, ""))
+        .filter(line => line.trim() && !/^\+[-+]+\+$/.test(line.trim()) && !/^(EXPLAIN|TREE)$/i.test(line.trim()));
+      const nodes = treeLines.map(line => {
+        const leading = (line.match(/^\s*/) || [""])[0].length;
+        const clean = line.trim().replace(/^->\s*/, "");
+        const estimated = clean.match(/cost=([\d.]+)(?:\.\.([\d.]+))?\s+rows=([\d.]+)/i);
+        const actual = clean.match(/actual time=([\d.]+)\.\.([\d.]+)\s+rows=([\d.]+)\s+loops=([\d.]+)/i);
+        const estRows = estimated ? num(estimated[3]) : 0;
+        const actualRows = actual ? num(actual[3]) : 0;
+        const loops = actual ? num(actual[4]) : 0;
+        const time = actual ? num(actual[2]) : 0;
+        const ratio = estRows ? (actualRows * Math.max(loops,1)) / estRows : 0;
+        const level = time > 1000 || ratio > 100 ? "bad" : time > 100 || ratio > 10 || (ratio && ratio < .1) ? "warn" : "good";
+        return { text:clean, depth:Math.min(8, Math.floor(leading/4)), cost:estimated ? num(estimated[2] || estimated[1]) : 0, estRows, time, actualRows, loops, ratio, level };
+      });
+      const slowest = nodes.reduce((a,n) => n.time > a.time ? n : a, {time:0,text:"N/D"});
+      const totalRows = nodes.reduce((s,n) => s + n.actualRows * Math.max(n.loops,1), 0);
+      const findings = [];
+      nodes.forEach(n => {
+        if (/table scan/i.test(n.text)) findings.push(finding(n.actualRows > 10000 ? "bad" : "warn","Varredura de tabela executada",`O nó produziu ${fmt(n.actualRows)} linha(s) por loop e levou até ${fmt(n.time)} ms.`));
+        if (/sort:/i.test(n.text) && n.time > 100) findings.push(finding("warn","Ordenação relevante",`O nó de ordenação alcançou ${fmt(n.time)} ms.`));
+        if (n.ratio > 10) findings.push(finding(n.ratio > 100 ? "bad" : "warn","Estimativa abaixo do resultado real",`Um nó produziu cerca de ${fmt(n.ratio)} vezes mais linhas que a estimativa. Estatísticas ou distribuição dos dados podem explicar a diferença.`));
+        if (n.ratio > 0 && n.ratio < .1) findings.push(finding("warn","Estimativa acima do resultado real",`Um nó produziu somente ${percent(n.ratio*100)} do volume estimado.`));
+      });
+      if (!findings.length && nodes.length) findings.push(finding("good","Plano sem discrepâncias evidentes","Não foram encontrados tempos altos, varreduras relevantes ou diferenças grandes entre linhas estimadas e reais."));
+      if (!nodes.length) findings.push(finding("bad","Árvore não reconhecida","Cole a saída textual completa do EXPLAIN ANALYZE."));
+      const metrics = [
+        metric("Operações",fmt(nodes.length),"nós reconhecidos","info"),
+        metric("Maior tempo",`${fmt(slowest.time)} ms`,"fim do nó mais demorado",slowest.time > 1000 ? "bad" : slowest.time > 100 ? "warn" : "good"),
+        metric("Linhas produzidas",fmt(totalRows),"soma das linhas × loops","info"),
+        metric("Loops máximos",fmt(Math.max(0,...nodes.map(n=>n.loops))),"maior repetição de um nó","info")
+      ];
+      return { title:"Plano executado e medido", subtitle:"Compare estimativas com tempos e quantidades reais observadas na execução.", metrics, findings, nodes, health:healthFrom(findings) };
+    }
+
+    function analyzeIndexes(raw) {
+      const rows = parseDelimited(raw, COMMANDS.index.columns, $("hasHeaders").checked);
+      const groups = {};
+      rows.forEach(r => {
+        const name = get(r,"Key_name") || "Sem nome";
+        (groups[name] ||= []).push(r);
+      });
+      const findings = [];
+      Object.entries(groups).forEach(([name, parts]) => {
+        const first = parts[0];
+        const unique = String(get(first,"Non_unique")) === "0";
+        const visible = !get(first,"Visible") || String(get(first,"Visible")).toUpperCase() !== "NO";
+        const cols = parts.sort((a,b) => num(get(a,"Seq_in_index")) - num(get(b,"Seq_in_index"))).map(r => get(r,"Column_name") || get(r,"Expression")).join(" → ");
+        if (!visible) findings.push(finding("warn",`Índice invisível: ${name}`,`O otimizador normalmente não considera este índice (${cols}).`));
+        else findings.push(finding("good",`${name}: ${unique ? "único" : "não único"}`,`Ordem das colunas: ${cols || "não identificada"}.`));
+        if (parts.length > 1) findings.push(finding("info",`Índice composto com ${parts.length} colunas`,`A ordem importa: consultas aproveitam melhor o prefixo iniciado por ${get(parts[0],"Column_name")}.`));
+      });
+      const metrics = [
+        metric("Índices",fmt(Object.keys(groups).length),"estruturas distintas","info"),
+        metric("Colunas indexadas",fmt(rows.length),"partes de índices","info"),
+        metric("Índices únicos",fmt(Object.values(groups).filter(p => String(get(p[0],"Non_unique")) === "0").length),"inclui PRIMARY","good"),
+        metric("Invisíveis",fmt(Object.values(groups).filter(p => String(get(p[0],"Visible")).toUpperCase() === "NO").length),"não usados normalmente",Object.values(groups).some(p => String(get(p[0],"Visible")).toUpperCase() === "NO") ? "warn" : "good")
+      ];
+      return { title:"Mapa de índices da tabela", subtitle:"Unicidade, composição, seletividade estimada e disponibilidade para o otimizador.", metrics, findings, rows, groups, health:healthFrom(findings) };
+    }
+
+    function analyzeTables(raw) {
+      const rows = parseDelimited(raw, COMMANDS.table.columns, $("hasHeaders").checked);
+      const findings = [];
+      let totalData = 0, totalIndex = 0, totalRows = 0;
+      rows.forEach(r => {
+        const name = get(r,"Name") || "?";
+        const engine = get(r,"Engine");
+        const data = num(get(r,"Data_length")), index = num(get(r,"Index_length")), free = num(get(r,"Data_free"));
+        totalData += data; totalIndex += index; totalRows += num(get(r,"Rows"));
+        if (String(engine).toLowerCase() !== "innodb") findings.push(finding("warn",`${name} usa ${engine || "engine não informada"}`,"Confirme se os recursos transacionais e de integridade esperados estão disponíveis."));
+        else findings.push(finding("good",`${name} usa InnoDB`,`${fmt(get(r,"Rows"))} linha(s) estimada(s), ${bytes(data + index)} reservados para dados e índices.`));
+        if (free > data + index && free > 16*1024*1024) findings.push(finding("info",`${name} apresenta espaço livre alocado`,`${bytes(free)} em Data_free. Interprete conforme o tipo de tablespace antes de executar manutenção.`));
+      });
+      const metrics = [
+        metric("Tabelas",fmt(rows.length),"registros analisados","info"),
+        metric("Linhas estimadas",fmt(totalRows),"para InnoDB, valor aproximado","info"),
+        metric("Dados",bytes(totalData),"Data_length total","info"),
+        metric("Índices",bytes(totalIndex),"Index_length total",totalData && totalIndex > totalData ? "warn" : "info")
+      ];
+      const bars = rows.map(r => ({label:get(r,"Name"), value:num(get(r,"Data_length")) + num(get(r,"Index_length")), display:bytes(num(get(r,"Data_length")) + num(get(r,"Index_length")))}));
+      return { title:"Estado e tamanho das tabelas", subtitle:"Visão consolidada de engine, volume estimado e espaço reservado.", metrics, findings, rows, bars, health:healthFrom(findings) };
+    }
+
+    function analyzeStatus(raw) {
+      const rows = parseDelimited(raw, COMMANDS.status.columns, $("hasHeaders").checked);
+      const map = Object.fromEntries(rows.map(r => [String(get(r,"Variable_name")), num(get(r,"Value"))]));
+      const val = key => map[key] || 0;
+      const uptime = val("Uptime");
+      const connections = val("Connections");
+      const aborted = val("Aborted_connects");
+      const tmp = val("Created_tmp_tables");
+      const tmpDisk = val("Created_tmp_disk_tables");
+      const bpReq = val("Innodb_buffer_pool_read_requests");
+      const bpReads = val("Innodb_buffer_pool_reads");
+      const abortRate = connections ? aborted / connections * 100 : 0;
+      const diskTmpRate = tmp ? tmpDisk / tmp * 100 : 0;
+      const bpHit = bpReq ? (1 - bpReads / bpReq) * 100 : 0;
+      const findings = [];
+      if (val("Threads_running") > Math.max(4, val("Threads_connected") * .5)) findings.push(finding("warn","Muitas conexões em execução",`${fmt(val("Threads_running"))} de ${fmt(val("Threads_connected"))} conexões não estão dormindo.`));
+      else findings.push(finding("good","Atividade de threads controlada",`${fmt(val("Threads_running"))} thread(s) executando entre ${fmt(val("Threads_connected"))} conexão(ões).`));
+      if (abortRate > 5) findings.push(finding("warn","Taxa de conexões abortadas elevada",`${percent(abortRate)} das conexões acumuladas falharam ou foram interrompidas.`));
+      else if (connections) findings.push(finding("good","Poucas conexões abortadas",`${percent(abortRate)} em relação ao total de conexões.`));
+      if (diskTmpRate > 25) findings.push(finding("warn","Muitas tabelas temporárias em disco",`${percent(diskTmpRate)} das tabelas temporárias foram criadas em disco.`));
+      else if (tmp) findings.push(finding("good","Temporários majoritariamente em memória",`${percent(diskTmpRate)} foram para disco.`));
+      if (bpHit && bpHit < 99) findings.push(finding("warn","Buffer pool com mais leituras físicas",`Hit rate calculado em aproximadamente ${percent(bpHit)}.`));
+      else if (bpHit) findings.push(finding("good","Buffer pool eficiente",`Hit rate calculado em aproximadamente ${percent(bpHit)}.`));
+      if (val("Slow_queries") > 0) findings.push(finding("info","Consultas lentas registradas",`${fmt(val("Slow_queries"))} consulta(s) ultrapassaram o limite configurado desde a inicialização.`));
+      const metrics = [
+        metric("Tempo ativo",uptime ? duration(uptime) : "N/D","desde a inicialização","info"),
+        metric("Conexões atuais",fmt(val("Threads_connected")),"Threads_connected","info"),
+        metric("Consultas lentas",fmt(val("Slow_queries")),"contador acumulado",val("Slow_queries") ? "warn" : "good"),
+        metric("Hit rate calculado",bpHit ? percent(bpHit) : "N/D","buffer pool do InnoDB",bpHit >= 99 ? "good" : "warn")
+      ];
+      const selected = rows.filter(r => /^(Threads_|Slow_queries|Connections$|Aborted_connects|Created_tmp|Innodb_buffer_pool|Questions$|Uptime$|Bytes_)/i.test(get(r,"Variable_name")));
+      const bars = selected.map(r => ({label:get(r,"Variable_name"),value:num(get(r,"Value"))}));
+      return { title:"Indicadores do servidor MySQL", subtitle:"Contadores acumulados precisam ser relacionados ao uptime e comparados entre coletas.", metrics, findings, rows, bars, health:healthFrom(findings) };
+    }
+
+    function analyzeProcess(raw) {
+      const rows = parseDelimited(raw, COMMANDS.process.columns, $("hasHeaders").checked);
+      const findings = [];
+      const active = rows.filter(r => String(get(r,"Command")).toLowerCase() !== "sleep");
+      const sleeps = rows.filter(r => String(get(r,"Command")).toLowerCase() === "sleep");
+      const long = rows.filter(r => num(get(r,"Time")) >= 60);
+      const waits = rows.filter(r => /wait|lock/i.test(`${get(r,"State")} ${get(r,"Info")}`));
+      waits.forEach(r => findings.push(finding(num(get(r,"Time")) > 60 ? "bad" : "warn",`Espera na conexão ${get(r,"Id")}`,`${get(r,"User")}@${get(r,"Host")} está há ${duration(num(get(r,"Time")))} em “${get(r,"State") || "estado não informado"}”.`)));
+      long.filter(r => !waits.includes(r)).forEach(r => {
+        const sleep = String(get(r,"Command")).toLowerCase() === "sleep";
+        findings.push(finding(sleep ? "warn" : "bad",`${sleep ? "Sessão ociosa" : "Operação longa"}: conexão ${get(r,"Id")}`,`${get(r,"Command")} permanece no estado atual há ${duration(num(get(r,"Time")))}.`));
+      });
+      if (!waits.length) findings.push(finding("good","Nenhuma espera explícita","Não foram encontrados estados contendo wait ou lock."));
+      if (!long.length) findings.push(finding("good","Sem estados prolongados","Nenhuma linha ultrapassou 60 segundos no estado atual."));
+      const metrics = [
+        metric("Conexões",fmt(rows.length),"linhas do processlist","info"),
+        metric("Ativas",fmt(active.length),"comando diferente de Sleep",active.length > 20 ? "warn" : "info"),
+        metric("Ociosas",fmt(sleeps.length),"comando Sleep",sleeps.some(r=>num(get(r,"Time"))>300) ? "warn" : "info"),
+        metric("Esperas",fmt(waits.length),"estado com wait ou lock",waits.length ? "bad" : "good")
+      ];
+      const bars = rows.map(r => ({label:`#${get(r,"Id")} ${get(r,"User")} · ${get(r,"Command")}`,value:num(get(r,"Time")),display:duration(num(get(r,"Time"))),level:waits.includes(r)?"bad":num(get(r,"Time"))>=60?"warn":"info"}));
+      return { title:"Conexões e atividades em execução", subtitle:"O campo Time indica há quanto tempo a sessão permanece no estado atual.", metrics, findings, rows, bars, health:healthFrom(findings) };
+    }
+
+    function runAnalysis() {
+      const raw = $("sqlOutput").value;
+      if (!raw.trim()) { showToast("Cole um resultado do MySQL antes de analisar."); $("sqlOutput").focus(); return; }
+      try {
+        const analyzers = { innodb:analyzeInnoDB, index:analyzeIndexes, explain:analyzeExplain, analyze:analyzeTree, table:analyzeTables, status:analyzeStatus, process:analyzeProcess };
+        const analysis = analyzers[state.command](raw);
+        state.analysis = analysis;
+        renderAnalysis(analysis, raw);
+      } catch (error) {
+        console.error(error);
+        showToast("Não foi possível interpretar os dados. Verifique o formato e a ordem das colunas.");
+      }
+    }
+
+    function renderMetrics(metrics) {
+      return `<div class="metrics">${metrics.map(m => `<article class="metric ${m.level}"><span class="metric-label">${escapeHTML(m.label)}</span><strong class="metric-value">${escapeHTML(m.value)}</strong><span class="metric-hint">${escapeHTML(m.hint)}</span></article>`).join("")}</div>`;
+    }
+    function renderFindings(findings) {
+      const visible = $("showHealthy").checked ? findings : findings.filter(f => f.level !== "good");
+      if (!visible.length) return `<div class="notice">Nenhum alerta foi encontrado com o filtro atual.</div>`;
+      return `<div class="findings">${visible.map(f => `<article class="finding ${f.level}"><i class="finding-marker"></i><div><strong>${escapeHTML(f.title)}</strong><p>${escapeHTML(f.text)}</p></div><span class="severity">${escapeHTML(f.tag)}</span></article>`).join("")}</div>`;
+    }
+    function renderBars(items) {
+      if (!items || !items.length) return "";
+      const max = Math.max(1, ...items.map(i => Number(i.value) || 0));
+      return `<div class="bars">${items.slice(0,25).map(i => `<div class="bar-row"><span class="bar-label" title="${escapeHTML(i.label)}">${escapeHTML(i.label)}</span><div class="bar-track"><div class="bar-fill ${i.level || ""}" style="width:${Math.max(1, (Number(i.value)||0)/max*100)}%"></div></div><span class="bar-value">${escapeHTML(i.display || fmt(i.value))}</span></div>`).join("")}</div>`;
+    }
+    function renderTable(rows, command) {
+      if (!rows || !rows.length) return `<div class="notice">Nenhuma linha foi reconhecida.</div>`;
+      const columns = Object.keys(rows[0]).filter(c => !c.startsWith("__"));
+      return `<div class="table-wrap"><table><thead><tr>${columns.map(c => `<th>${escapeHTML(c)}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${columns.map(c => {
+        let content = escapeHTML(r[c] === "" ? "NULL" : r[c]);
+        if (command === "explain" && c.toLowerCase() === "type") content = `<span class="pill ${r.__level}">${content}</span>`;
+        if (command === "process" && c.toLowerCase() === "command") content = `<span class="pill ${String(r[c]).toLowerCase()==="sleep"?"":"good"}">${content}</span>`;
+        return `<td class="${["Info","Extra","Variable_name","Key_name","Column_name","type","key"].includes(c) ? "mono" : ""}">${content}</td>`;
+      }).join("")}</tr>`).join("")}</tbody></table></div>`;
+    }
+    function renderLearn() {
+      const help = FIELD_HELP[state.command] || [];
+      const advanced = $("advancedMode").checked;
+      return `
+        <div class="section-title"><h3>Dicionário do resultado</h3><span>${advanced ? "modo avançado" : "explicação direta"}</span></div>
+        ${help.map(([term, text], i) => `<details ${i === 0 ? "open" : ""}><summary><span>${escapeHTML(term)}</span></summary><div class="detail-content"><p>${escapeHTML(text)}</p>${advanced ? `<p><strong>Leitura recomendada:</strong> compare este campo com volume, tempo de atividade, carga do servidor e coletas anteriores. Um valor isolado raramente confirma a causa de um problema.</p>` : ""}</div></details>`).join("")}
+        <div class="notice" style="margin-top:12px">As classificações são heurísticas educacionais. O contexto da aplicação, o hardware, a versão e a série histórica podem mudar a interpretação.</div>`;
+    }
+
+    function renderAnalysis(a, raw) {
+      $("emptyState").classList.add("hidden");
+      $("results").classList.add("show");
+      $("resultCommand").textContent = COMMANDS[state.command].label;
+      $("resultTitle").textContent = a.title;
+      const chosenVersion = $("serverVersion").value;
+      const versionText = chosenVersion === "auto" ? "formato reconhecido automaticamente" : `compatibilidade MySQL ${chosenVersion}`;
+      $("resultSubtitle").textContent = `${a.subtitle} · ${versionText}.`;
+      $("health").className = `health ${a.health.level}`;
+      $("health").querySelector("span").textContent = a.health.label;
+      let overview = renderMetrics(a.metrics);
+      overview += `<div class="section-title"><h3>Interpretação principal</h3><span>${a.findings.length} observação(ões)</span></div>${renderFindings(a.findings)}`;
+      if (a.bars?.length) overview += `<div class="section-title"><h3>Comparação visual</h3><span>escala relativa ao maior valor</span></div>${renderBars(a.bars)}`;
+      if (a.facts) {
+        overview += `<div class="section-title"><h3>Métricas complementares</h3></div><div class="guide-grid">${Object.entries(a.facts).map(([k,v])=>`<div class="guide-card"><h3>${escapeHTML(k)}</h3><code>${escapeHTML(fmt(v))}</code></div>`).join("")}</div>`;
+      }
+      $("tab-overview").innerHTML = overview;
+
+      let details = "";
+      if (a.rows) details = `<div class="section-title"><h3>Registros organizados</h3><span>role horizontalmente para ver todas as colunas</span></div>${renderTable(a.rows,state.command)}`;
+      if (a.sections) details = `<div class="section-title"><h3>Seções do monitor InnoDB</h3><span>clique para expandir</span></div>${a.sections.map((s,i)=>`<details ${i===0?"open":""}><summary><span>${escapeHTML(s.name)}</span></summary><div class="detail-content"><pre class="raw">${escapeHTML(s.content)}</pre></div></details>`).join("")}`;
+      if (a.nodes) details = `<div class="section-title"><h3>Árvore de execução</h3><span>recuo representa dependência entre operações</span></div><div class="tree">${a.nodes.map(n=>`<div class="tree-node ${n.level}" style="--depth:${n.depth}"><strong>${escapeHTML(n.text.split(/\s+\(/)[0])}</strong><span>estimado: ${fmt(n.estRows)} linhas</span><span>real: ${fmt(n.actualRows)} × ${fmt(n.loops)} loop(s)</span><span>até ${fmt(n.time)} ms</span></div>`).join("")}</div>`;
+      $("tab-details").innerHTML = details || `<div class="notice">Não há uma visualização detalhada adicional para esta entrada.</div>`;
+      $("tab-learn").innerHTML = renderLearn();
+      $("tab-raw").innerHTML = `<div class="section-title"><h3>Saída recebida</h3><button class="text-action" onclick="window.print()">Imprimir relatório</button></div><pre class="raw">${escapeHTML(normalizeRaw(raw))}</pre>`;
+      activateTab("overview");
+      if (window.innerWidth < 1050) document.querySelector(".output-panel").scrollIntoView({behavior:"smooth",block:"start"});
+    }
+
+    function activateTab(name) {
+      document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === name));
+      document.querySelectorAll(".tab-panel").forEach(p => p.classList.toggle("active", p.id === `tab-${name}`));
+    }
+    function updateCount() { $("charCount").textContent = `${new Intl.NumberFormat("pt-BR").format($("sqlOutput").value.length)} caracteres`; }
+    function resetResult() {
+      $("results").classList.remove("show");
+      $("emptyState").classList.remove("hidden");
+      state.analysis = null;
+    }
+    function showToast(message) {
+      const toast = $("toast");
+      toast.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => toast.classList.remove("show"), 2800);
+    }
+
+    $("analyzeBtn").addEventListener("click", runAnalysis);
+    $("clearBtn").addEventListener("click", () => { $("sqlOutput").value = ""; updateCount(); resetResult(); $("sqlOutput").focus(); });
+    $("sampleBtn").addEventListener("click", () => { $("sqlOutput").value = COMMANDS[state.command].sample; updateCount(); runAnalysis(); });
+    $("sqlOutput").addEventListener("input", updateCount);
+    $("sqlOutput").addEventListener("keydown", e => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") runAnalysis(); });
+    $("showHealthy").addEventListener("change", () => state.analysis && runAnalysis());
+    $("advancedMode").addEventListener("change", () => state.analysis && renderAnalysis(state.analysis, $("sqlOutput").value));
+    $("serverVersion").addEventListener("change", () => state.analysis && renderAnalysis(state.analysis, $("sqlOutput").value));
+    document.querySelectorAll(".tab").forEach(tab => tab.addEventListener("click", () => activateTab(tab.dataset.tab)));
+    $("openGuide").addEventListener("click", e => { e.preventDefault(); $("guia").classList.remove("hidden"); $("guia").scrollIntoView({behavior:"smooth"}); });
+    $("closeGuide").addEventListener("click", () => $("guia").classList.add("hidden"));
+
+    renderCommands();
+    updateCount();
+  </script>
+</body>
+</html>
